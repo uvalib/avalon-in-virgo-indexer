@@ -9,6 +9,7 @@
   <xsl:param name="pid" />
   <xsl:param name="fedoraBaseUrl" />
   <xsl:param name="avalonBaseUrl" />
+  <xsl:param name="blacklist" />
   
   <xsl:template match="text()" priority="-1" />
   
@@ -28,7 +29,8 @@
         <xsl:call-template name="processSectionsMetadata" />
         <xsl:call-template name="processWorkflowMetadata" />
         <xsl:call-template name="processRelationshipMetadata" />
-        <field name="has_embedded_avalon_media_control">yes</field>
+        <!-- <field name="has_embedded_avalon_media_control">yes</field> -->
+        <field name="feature_facet">has_embedded_avalon_media</field>
       </doc>
     </add>
   </xsl:template>
@@ -165,7 +167,11 @@
   <xsl:template match="text()" priority="-1" mode="displayMetadata" />
 
   <xsl:template match="duration" mode="displayMetadata">
-    <field name="duration_display"><xsl:value-of select="text()" /></field>
+    <field name="duration_display">
+      <xsl:call-template name="prettyPrintDurationInMS">
+        <xsl:with-param name="duration" select="text()" />
+      </xsl:call-template>
+    </field>
   </xsl:template>
 
   <xsl:template name="processSectionsMetadata">
@@ -212,13 +218,49 @@
   <xsl:template match="text()" priority="-1" mode="partMetadata" />
 
   <xsl:template match="duration" mode="partMetadata">
-    <field name="part_duration_display"><xsl:value-of select="text()" /></field>
+    <field name="part_duration_display">
+      <xsl:call-template name="prettyPrintDurationInMS">
+        <xsl:with-param name="duration" select="text()" />
+      </xsl:call-template>
+    </field>
+  </xsl:template>
+  
+  <xsl:template name="prettyPrintDurationInMS">
+    <xsl:param name="duration" required="yes"></xsl:param>
+    <xsl:variable name="duration_in_ms" select="$duration"/>
+    <xsl:variable name="hours" select="floor($duration_in_ms div 3600000)" />
+    <xsl:variable name="minutes" select="floor($duration_in_ms div 60000) mod 60" />
+    <xsl:variable name="seconds" select="floor($duration_in_ms div 1000) mod 60" />
+    <xsl:choose>
+      <xsl:when test="$hours > 0">
+        <xsl:value-of select="concat(format-number($hours, '#'), ':', format-number($minutes, '00'), ':', format-number($seconds, '00'))" />
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:value-of select="concat(format-number($minutes, '#0'), ':', format-number($seconds, '00'))" />  
+      </xsl:otherwise>
+    </xsl:choose>
   </xsl:template>
   
   <xsl:template match="display_aspect_ratio" mode="partMetadata">
-    <field name="display_aspect_ratio_display"><xsl:value-of select="text()" /></field>
+    <xsl:if test="text() eq '2.4'">
+      <!-- 
+        A bug in avalon causes an incorrect aspect ratio to be presented for ripped DVDs.
+        This fixes that... no real video is 2.4
+         -->
+      <field name="display_aspect_ratio_display">1.779</field>
+    </xsl:if>
+    <xsl:if test="text() ne '2.4'">
+      <field name="display_aspect_ratio_display"><xsl:value-of select="text()" /></field>
+    </xsl:if>
   </xsl:template>
-  
+
+  <!--
+  <xsl:template match="original_frame_size" mode="partMetadata">
+    <field name="display_aspect_ratio_display"><xsl:value-of select="number(substring-before(text(), 'x')) div number(substring-after(text(), 'x'))" /></field>
+  </xsl:template>
+  -->
+
+
   <xsl:template match="apia:objLabel" xmlns:apia="http://www.fedora.info/definitions/1/0/access/" mode="partMetadata">
     <field name="part_label_display"><xsl:value-of select="text()" /></field>
   </xsl:template>
@@ -231,6 +273,9 @@
       </xsl:call-template>
     </xsl:variable>
     <xsl:choose>
+      <xsl:when test="$blacklist eq 'true'">
+        <field name="shadowed_location_facet">HIDDEN</field>
+      </xsl:when>
       <xsl:when test="$content/workflow/published/text() eq 'true'">
         <field name="shadowed_location_facet">VISIBLE</field>
       </xsl:when>

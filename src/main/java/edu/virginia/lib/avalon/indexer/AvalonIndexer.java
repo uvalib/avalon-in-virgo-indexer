@@ -12,6 +12,7 @@ import org.apache.commons.httpclient.methods.multipart.ByteArrayPartSource;
 import org.apache.commons.httpclient.methods.multipart.FilePart;
 import org.apache.commons.httpclient.methods.multipart.MultipartRequestEntity;
 import org.apache.commons.httpclient.methods.multipart.Part;
+import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xml.sax.SAXException;
@@ -29,53 +30,72 @@ import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.RandomAccessFile;
+import java.net.MalformedURLException;
+import java.nio.channels.FileLock;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class AvalonIndexer {
 
     public static void main(String [] args) throws Exception {
-        String fedoraUrl = args[0];
-        String avalonUrl = args[1];
-        String solrUrl = args[2];
-        String fedoraUsername = args.length > 3 ? args[3] : "";
-        String fedoraPassword = args.length > 4 ? args[4] : "";
+        if (args.length != 1) {
+            System.err.println("Incorrect usage.  Please specify a configuration file as the only argument.");
+            System.exit(-1);
+        } else {
+            Properties p = new Properties();
+            FileInputStream fis = new FileInputStream(args[0]);
+            try {
+                // todo: move this to after the lock
+                p.load(fis);
+            } finally {
+                fis.close();
+            }
+            FileLock lock = null;
+            try {
+                lock = new RandomAccessFile(new File(args[0]), "rw").getChannel().tryLock();
+                if (lock == null) {
+                    System.err.println("Another instance of this program is currently running the configuration " + args[0] + ".");
+                    System.exit(-2);
+                }
 
-        FedoraClient fc = new FedoraClient(new FedoraCredentials(fedoraUrl, fedoraUsername, fedoraPassword));
-        AvalonIndexer ai = new AvalonIndexer(fc, solrUrl, fedoraUrl, avalonUrl);
-        for (String pid : ai.getAllObjectPids()) {
-            System.out.println(ai.generateAddDoc(pid));
-            ai.indexPid(pid);
+                AvalonIndexer ai = new AvalonIndexer(p);
+                ai.synchronizeAddDocRepository();
+            } finally {
+                fis.close();
+                if (lock != null) {
+                    lock.release();
+                }
+            }
         }
-        ai.commit();
-        ai.optimize();
     }
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AvalonIndexer.class);
 
+    private Properties configuration;
+    
     private HttpClient httpClient;
 
     private FedoraClient client;
 
-    private String fedoraBaseUrl;
-
-    private String solrUpdateUrl;
-
-    private String avalonBaseUrl;
-
     private Transformer transformer;
 
-    public AvalonIndexer(FedoraClient fedoraClient, String solrUpdateUrl, String fedoraUrl, String avalonUrl) throws TransformerConfigurationException, FedoraClientException {
-        this.client = fedoraClient;
-        this.fedoraBaseUrl = fedoraUrl;
-        this.avalonBaseUrl = avalonUrl;
-        this.solrUpdateUrl = solrUpdateUrl;
+    public AvalonIndexer(Properties p) throws TransformerConfigurationException, FedoraClientException, MalformedURLException {
+        this.configuration = p;
+        this.client = new FedoraClient(new FedoraCredentials(getRequiredProperty("fedora-url"), getProperty("fedora-username", ""), getProperty("fedora-password", "")));
 
         this.httpClient = new HttpClient();
 
@@ -84,34 +104,104 @@ public class AvalonIndexer {
                 new StreamSource(getClass().getClassLoader().getResourceAsStream("avalon-3.1-to-solr.xsl")));
         this.transformer = templates.newTransformer();
     }
+    
+    private String getProperty(String name, String defaultValue) {
+        if (configuration.containsKey(name)) {
+            return configuration.getProperty(name);
+        } else {
+            return defaultValue;
+        }
+    }
+    
+    private String getRequiredProperty(String name) {
+        if (configuration.containsKey(name)) {
+            return configuration.getProperty(name);
+        } else {
+            throw new RuntimeException("Required property \"" + name + "\" not set!");
+        }
+    }
+
+    /**
+     * Updates the files in the given addDocRepo directory to reflect current
+     * solr documents for the
+     */
+    public void synchronizeAddDocRepository() throws Exception {
+        HydraSolrManager m = new HydraSolrManager(getRequiredProperty("hydra-solr-url"));
+        for (HydraSolrManager.AvalonRecord record : m.getPidsUpdatedSince(getLastRunDate())) {
+            FileOutputStream fos = new FileOutputStream(new File(getRequiredProperty("add-doc-repository"), record.getPid().replace(':', '_') + ".xml"));
+            try {
+                final boolean blacklisted = isBlacklisted(record);
+                LOGGER.info("Generating add doc for " + (blacklisted ? "blacklisted " : "") + record.getPid() + " belonging to collection " + record.getCollectionPid() + "...");
+                IOUtils.write(generateAddDoc(record.getPid(), blacklisted), fos);
+            } finally {
+                fos.close();
+            }
+        }
+        saveLastRunDate();
+    }
+
+    private boolean isBlacklisted(HydraSolrManager.AvalonRecord record) {
+        for (String s : getRequiredProperty("collection-blacklist").split(",")) {
+            if (record.getCollectionPid().equals(s.trim())) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     public List<String> getAllObjectPids() throws Exception {
         return getSubjects(client, "afmodel:MediaObject",  "info:fedora/fedora-system:def/model#hasModel");
     }
 
-    public void indexPid(String pid) throws ParserConfigurationException, TransformerException, IOException, SAXException, FedoraClientException {
-        postContent(generateAddDoc(pid));
+    public void indexPid(String pid, boolean blacklist) throws ParserConfigurationException, TransformerException, IOException, SAXException, FedoraClientException {
+        postContent(generateAddDoc(pid, blacklist));
     }
 
-    public String generateAddDoc(String pid) throws FedoraClientException, ParserConfigurationException, TransformerException, SAXException, IOException {
+    public String generateAddDoc(String pid, boolean blacklist) throws FedoraClientException, ParserConfigurationException, TransformerException, SAXException, IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        applyTransformation(FedoraClient.getDatastreamDissemination(pid, "descMetadata").execute(client).getEntityInputStream(), baos, pid);
+        applyTransformation(FedoraClient.getDatastreamDissemination(pid, "descMetadata").execute(client).getEntityInputStream(), baos, pid, blacklist);
         return new String(baos.toByteArray());
     }
 
-    private void applyTransformation(InputStream source, OutputStream destination, String pid)
+    private Date getLastRunDate() throws IOException, ParseException {
+        File lastRunFile = new File(getRequiredProperty("last-run-file"));
+        if (lastRunFile.exists()) {
+            FileInputStream fis = new FileInputStream(lastRunFile);
+            try {
+                return new SimpleDateFormat().parse(IOUtils.toString(fis));
+            } finally {
+                fis.close();
+            }
+        } else {
+            return null;
+        }
+    }
+    
+    private void saveLastRunDate() throws IOException {
+        File lastRunFile = new File(getRequiredProperty("last-run-file"));
+        FileOutputStream fos = new FileOutputStream(lastRunFile);
+        try {
+            IOUtils.write(new SimpleDateFormat().format(new Date()), fos);
+        } finally {
+            fos.close();
+        }        
+    }
+
+    private void applyTransformation(InputStream source, OutputStream destination, String pid, boolean blacklist)
             throws ParserConfigurationException, IOException, SAXException, TransformerException {
         DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
         f.setNamespaceAware(true);
         DocumentBuilder b = f.newDocumentBuilder();
         transformer.setParameter("pid", pid);
-        transformer.setParameter("fedoraBaseUrl", fedoraBaseUrl);
-        transformer.setParameter("avalonBaseUrl", avalonBaseUrl);
+        transformer.setParameter("fedoraBaseUrl", getRequiredProperty("fedora-url"));
+        transformer.setParameter("avalonBaseUrl", getRequiredProperty("avalon-url"));
+        transformer.setParameter("blacklist", blacklist ? "true" : "false");
+
         transformer.transform(new DOMSource(b.parse(source)), new StreamResult(destination));
     }
 
     public void postContent(String content) throws HttpException, IOException {
-        PostMethod post = new PostMethod(solrUpdateUrl);
+        PostMethod post = new PostMethod(getRequiredProperty("solr-update-url"));
         Part[] parts = {
                 new FilePart("add.xml", new ByteArrayPartSource("add.xml", content.getBytes("UTF-8")), "text/xml", "UTF-8")
         };
@@ -122,7 +212,7 @@ public class AvalonIndexer {
             getClient().executeMethod(post);
             int status = post.getStatusCode();
             if (status != HttpStatus.SC_OK) {
-                throw new RuntimeException("REST action \"" + solrUpdateUrl + "\" failed: " + post.getStatusLine());
+                throw new RuntimeException("REST action \"" + getRequiredProperty("solr-update-url") + "\" failed: " + post.getStatusLine());
             }
         } finally {
             post.releaseConnection();
@@ -130,7 +220,7 @@ public class AvalonIndexer {
     }
 
     public void commit() throws HttpException, IOException {
-        String url = solrUpdateUrl + "?stream.body=%3Ccommit/%3E";
+        String url = getRequiredProperty("sol-update-url") + "?stream.body=%3Ccommit/%3E";
         GetMethod get = new GetMethod(url);
         try {
             HttpClient client = new HttpClient();
@@ -146,7 +236,7 @@ public class AvalonIndexer {
     }
 
     public void optimize() throws HttpException, IOException {
-        String url = solrUpdateUrl + "?stream.body=%3Coptimize/%3E";
+        String url = getRequiredProperty("sol-update-url") + "?stream.body=%3Coptimize/%3E";
         GetMethod get = new GetMethod(url);
         try {
             HttpClient client = new HttpClient();
