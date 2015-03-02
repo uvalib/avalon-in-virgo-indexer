@@ -2,7 +2,9 @@
 <!-- converts avalon 3.1 objects into solr add documents suitable
        for virgo -->
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
-  xmlns:mods="http://www.loc.gov/mods/v3" version="2.0">
+  xmlns:mods="http://www.loc.gov/mods/v3" 
+  xmlns:rm="http://hydra-collab.stanford.edu/schemas/rightsMetadata/v1" 
+  version="2.0">
   
   <xsl:output indent="yes" />
   
@@ -266,17 +268,27 @@
   </xsl:template>
   
   <xsl:template name="processWorkflowMetadata">
-    <xsl:variable name="content">
+    <xsl:variable name="workflow">
       <xsl:call-template name="processDatastream">
         <xsl:with-param name="pid" select="$pid"/>
         <xsl:with-param name="dsid">workflow</xsl:with-param>
       </xsl:call-template>
     </xsl:variable>
+    <xsl:variable name="rights">
+      <xsl:call-template name="processDatastream">
+        <xsl:with-param name="pid" select="$pid"/>
+        <xsl:with-param name="dsid">rightsMetadata</xsl:with-param>
+      </xsl:call-template>
+    </xsl:variable>
+    <xsl:variable name="discoveryGroup" select="$rights/rm:rightsMetadata/rm:access[@type='discover']/rm:machine/rm:group"/>
     <xsl:choose>
       <xsl:when test="$blacklist eq 'true'">
         <field name="shadowed_location_facet">HIDDEN</field>
       </xsl:when>
-      <xsl:when test="$content/workflow/published/text() eq 'true'">
+      <xsl:when test="$workflow/workflow/published/text() eq 'true' and $discoveryGroup/text() eq 'nobody'">
+        <field name="shadowed_location_facet">HIDDEN</field>
+      </xsl:when>
+      <xsl:when test="$workflow/workflow/published/text() eq 'true'">
         <field name="shadowed_location_facet">VISIBLE</field>
       </xsl:when>
       <xsl:otherwise>
@@ -320,6 +332,5 @@
     <field name="unit_display"><xsl:value-of select="text()" /></field>
     <field name="unit_text" boost="0.25"><xsl:value-of select="text()" /></field>
   </xsl:template>
-  
 
 </xsl:stylesheet>
