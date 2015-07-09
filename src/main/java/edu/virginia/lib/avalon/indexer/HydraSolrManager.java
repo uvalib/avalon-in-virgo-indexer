@@ -58,7 +58,7 @@ public class HydraSolrManager {
         }
         return results;
     }
-    
+
     private boolean parseResultPage(QueryResponse response, List<AvalonRecord> results) {
         if (response.getResults().isEmpty()) {
             return false;
@@ -96,10 +96,10 @@ public class HydraSolrManager {
     }
 
     public static class AvalonRecord {
-        
+
         private String pid;
         private String collectionPid;
-        
+
         public AvalonRecord(String pid, String collectionPid) {
             this.pid = pid;
             if (collectionPid.startsWith("info:fedora/")) {
@@ -108,19 +108,19 @@ public class HydraSolrManager {
                 this.collectionPid = collectionPid;
             }
         }
-        
+
         public String getPid() {
             return pid;
         }
-        
+
         public String getCollectionPid() {
             return collectionPid;
-            
+
         }
 
         public String toString() {
             return "[pid: \"" + pid + "\", collectionPid: \"" + collectionPid + "\"]";
         }
     }
-    
+
 }
