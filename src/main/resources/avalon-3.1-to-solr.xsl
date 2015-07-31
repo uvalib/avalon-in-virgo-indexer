@@ -1,9 +1,11 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <!-- converts avalon 3.1 objects into solr add documents suitable
        for virgo -->
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
   xmlns:mods="http://www.loc.gov/mods/v3" 
-  xmlns:rm="http://hydra-collab.stanford.edu/schemas/rightsMetadata/v1" 
+  xmlns:rm="http://hydra-collab.stanford.edu/schemas/rightsMetadata/v1"
+  xmlns:dc="http://purl.org/dc/elements/1.1/" 
+  xmlns:oai_dc="http://www.openarchives.org/OAI/2.0/oai_dc/"
   version="2.0">
   
   <xsl:output indent="yes" />
@@ -281,14 +283,20 @@
       </xsl:call-template>
     </xsl:variable>
     <xsl:variable name="discoveryGroup" select="$rights/rm:rightsMetadata/rm:access[@type='discover']/rm:machine/rm:group"/>
+    <xsl:variable name="DC">
+    <xsl:call-template name="processDatastream">
+        <xsl:with-param name="pid" select="$pid"/>
+        <xsl:with-param name="dsid">DC</xsl:with-param>
+      </xsl:call-template>
+    </xsl:variable>
     <xsl:choose>
       <xsl:when test="$blacklist eq 'true'">
         <field name="shadowed_location_facet">HIDDEN</field>
       </xsl:when>
-      <xsl:when test="$workflow/workflow/published/text() eq 'true' and $discoveryGroup/text() eq 'nobody'">
+      <xsl:when test="$DC/oai_dc:dc/dc:publisher and $discoveryGroup/text() eq 'nobody'">
         <field name="shadowed_location_facet">HIDDEN</field>
       </xsl:when>
-      <xsl:when test="$workflow/workflow/published/text() eq 'true'">
+      <xsl:when test="$DC/oai_dc:dc/dc:publisher">
         <field name="shadowed_location_facet">VISIBLE</field>
       </xsl:when>
       <xsl:otherwise>
