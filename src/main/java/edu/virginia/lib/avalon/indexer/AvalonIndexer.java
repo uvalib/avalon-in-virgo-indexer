@@ -15,6 +15,8 @@ import org.apache.commons.httpclient.methods.multipart.Part;
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -28,6 +30,9 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathFactory;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -74,6 +79,7 @@ public class AvalonIndexer {
 
                 AvalonIndexer ai = new AvalonIndexer(p);
                 ai.synchronizeAddDocRepository();
+                ai.shadowAnyDeletedRecords();
             } finally {
                 fis.close();
                 if (lock != null) {
@@ -138,6 +144,35 @@ public class AvalonIndexer {
             }
         }
         saveLastRunDate();
+    }
+
+    public void shadowAnyDeletedRecords() throws Exception {
+        DocumentBuilder b = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+        XPath xpath = XPathFactory.newInstance().newXPath();
+        TransformerFactory tFactory = TransformerFactory.newInstance();
+        Transformer transformer = tFactory.newTransformer();
+        for (File solrDocFile : new File(getRequiredProperty("add-doc-repository")).listFiles()) {
+            Pattern p = Pattern.compile("avalon_(\\d+).xml");
+            Matcher m = p.matcher(solrDocFile.getName());
+            if (m.matches()) {
+                final String pid = "avalon:" + m.group(1);
+                if (!exists(pid)) {
+                    Document solrDoc = b.parse(solrDocFile);
+                    NodeList nl = (NodeList) xpath.evaluate("add/doc/field[@name='shadowed_location_facet']", solrDoc, XPathConstants.NODESET);
+                    if (nl != null && nl.getLength() == 1 && !"HIDDEN".equals(nl.item(0).getTextContent())) {
+                        System.out.println("Hiding deleted record for " + pid + "...");
+                        nl.item(0).setTextContent("HIDDEN");
+                        FileOutputStream fos = new FileOutputStream(solrDocFile);
+                        try {
+                            StreamResult result = new StreamResult(fos);
+                            transformer.transform(new DOMSource(solrDoc), result);
+                        } finally {
+                            fos.close();
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private boolean isBlacklisted(HydraSolrManager.AvalonRecord record) {
@@ -272,5 +307,18 @@ public class AvalonIndexer {
             }
         }
         return pids;
+    }
+
+    public boolean exists(String id) {
+        try {
+            FedoraClient.getObjectProfile(id).execute(client);
+            return true;
+        } catch (FedoraClientException e) {
+            if (e.getMessage() != null && e.getMessage().contains("404")) {
+                return false;
+            } else {
+                throw new RuntimeException(e);
+            }
+        }
     }
 }
