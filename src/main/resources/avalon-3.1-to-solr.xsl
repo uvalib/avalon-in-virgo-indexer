@@ -139,6 +139,11 @@
     <field name="region_text"><xsl:value-of select="text()" /></field>
   </xsl:template>
 
+  <xsl:template match="mods:accessCondition[@type='use and reproduction']">
+    <field name="terms_of_use_display"><xsl:value-of select="text()" /></field>
+    <field name="terms_of_use_text"><xsl:value-of select="text()" /></field>
+  </xsl:template>
+
   <xsl:template match="mods:recordInfo/mods:recordChangeDate">
     <!-- record change date -->
   </xsl:template>
