@@ -47,14 +47,24 @@
   </xsl:template>
   
   <xsl:template match="mods:name[@type='personal' and mods:role/mods:roleTerm='cre']">
-    <field name="creator_display"><xsl:value-of select="mods:namePart" /></field>
-    <field name="author_facet"><xsl:value-of select="mods:namePart" /></field>
-    <field name="author_text"><xsl:value-of select="mods:namePart" /></field>
+	<xsl:variable name="creator">
+		<xsl:call-template name="stripParentheticRole">
+		    <xsl:with-param name="value" select="mods:namePart" />
+		</xsl:call-template>
+	</xsl:variable>
+    <field name="creator_display"><xsl:value-of select="$creator" /></field>
+    <field name="author_facet"><xsl:value-of select="$creator" /></field>
+    <field name="author_text"><xsl:value-of select="$creator" /></field>
   </xsl:template>
   
   <xsl:template match="mods:name[@type='personal' and mods:role/mods:roleTerm='ctb']">
-    <field name="contributor_display"><xsl:value-of select="mods:namePart" /></field>
-    <field name="contributor_text"><xsl:value-of select="mods:namePart" /></field>
+	  <xsl:variable name="contributor">
+		<xsl:call-template name="stripParentheticRole">
+		    <xsl:with-param name="value" select="mods:namePart" />
+		</xsl:call-template>
+	</xsl:variable>
+    <field name="contributor_display"><xsl:value-of select="$contributor" /></field>
+    <field name="contributor_text"><xsl:value-of select="$contributor" /></field>
   </xsl:template>
   
   <xsl:template match="mods:abstract">
@@ -344,6 +354,18 @@
   <xsl:template match="unit" mode="collectionMetadata">
     <field name="unit_display"><xsl:value-of select="text()" /></field>
     <field name="unit_text" boost="0.25"><xsl:value-of select="text()" /></field>
+  </xsl:template>
+  
+  <xsl:template name="stripParentheticRole">
+	  <xsl:param name="value" required="yes" />
+	  <xsl:analyze-string select="$value" regex="^(.*) \([^(]+\)$">
+        <xsl:matching-substring>
+			<xsl:value-of select="regex-group(1)" />
+        </xsl:matching-substring>
+        <xsl:non-matching-substring>
+            <xsl:value-of select="$value" />
+        </xsl:non-matching-substring>
+      </xsl:analyze-string>
   </xsl:template>
 
 </xsl:stylesheet>
