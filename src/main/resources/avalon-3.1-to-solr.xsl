@@ -75,10 +75,12 @@
   <xsl:template match="mods:typeOfResource">
     <xsl:if test="text() = 'sound recording'">
       <field name="format_facet"><xsl:text>Streaming Audio</xsl:text></field>
+      <field name="format_text"><xsl:text>Sound Recording</xsl:text></field>
       <field name="format_text"><xsl:text>Streaming Audio</xsl:text></field>
     </xsl:if>
     <xsl:if test="text() = 'moving image'">
       <field name="format_facet"><xsl:text>Online Video</xsl:text></field>
+      <field name="format_facet"><xsl:text>Video</xsl:text></field>
       <field name="format_text"><xsl:text>Online Video</xsl:text></field>
     </xsl:if>
   </xsl:template>
