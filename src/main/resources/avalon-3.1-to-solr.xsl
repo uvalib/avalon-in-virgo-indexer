@@ -607,9 +607,11 @@
   <xsl:template match="text()" priority="-1" mode="collectionMetadata"/>
 
   <xsl:template match="name" mode="collectionMetadata">
-    <field name="digital_collection_facet">
-      <xsl:value-of select="text()"/>
-    </field>
+    <xsl:if test="not(starts-with(text(), 'MSS'))">
+      <field name="digital_collection_facet">
+        <xsl:value-of select="text()"/>
+      </field>
+    </xsl:if>
     <field name="digital_collection_text" boost="0.25">
       <xsl:value-of select="text()"/>
     </field>
