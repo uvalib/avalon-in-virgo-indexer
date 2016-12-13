@@ -199,10 +199,10 @@
       <field name="author_facet">
         <xsl:value-of select="$name"/>
       </field>
-      <field name="author_text">
-        <xsl:value-of select="$name"/>
-      </field>
     </xsl:if>
+    <field name="author_text">
+      <xsl:value-of select="$name" />
+    </field>
   </xsl:template>
 
   <xsl:template match="mods:abstract">
@@ -384,6 +384,12 @@
 
   <xsl:template match="mods:recordInfo/mods:recordChangeDate">
     <!-- record change date -->
+  </xsl:template>
+
+  <xsl:template match="mods:relatedItem[@type='original']/mods:identifier">
+    <field name="other_identifier_text">
+      <xsl:value-of select="text()" />
+    </field>
   </xsl:template>
 
   <xsl:template name="processDatastream">
