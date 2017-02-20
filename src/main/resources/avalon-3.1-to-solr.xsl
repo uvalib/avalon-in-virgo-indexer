@@ -200,7 +200,7 @@
         <xsl:value-of select="$name"/>
       </field>
     </xsl:if>
-    <field name="author_text">
+    <field name="name_text">
       <xsl:value-of select="$name" />
     </field>
   </xsl:template>
@@ -212,31 +212,6 @@
     <field name="abstract_text">
       <xsl:value-of select="text()"/>
     </field>
-  </xsl:template>
-
-  <xsl:template match="mods:typeOfResource">
-    <xsl:if test="text() = 'sound recording'">
-      <field name="format_facet">
-        <xsl:text>Streaming Audio</xsl:text>
-      </field>
-      <field name="format_text">
-        <xsl:text>Sound Recording</xsl:text>
-      </field>
-      <field name="format_text">
-        <xsl:text>Streaming Audio</xsl:text>
-      </field>
-    </xsl:if>
-    <xsl:if test="text() = 'moving image'">
-      <field name="format_facet">
-        <xsl:text>Online Video</xsl:text>
-      </field>
-      <field name="format_facet">
-        <xsl:text>Video</xsl:text>
-      </field>
-      <field name="format_text">
-        <xsl:text>Online Video</xsl:text>
-      </field>
-    </xsl:if>
   </xsl:template>
 
   <xsl:template match="mods:originInfo/mods:dateIssued">
@@ -386,12 +361,6 @@
     <!-- record change date -->
   </xsl:template>
 
-  <xsl:template match="mods:relatedItem[@type='original']/mods:identifier">
-    <field name="other_identifier_text">
-      <xsl:value-of select="text()" />
-    </field>
-  </xsl:template>
-
   <xsl:template name="processDatastream">
     <xsl:param name="dsid" required="yes"/>
     <xsl:param name="pid" required="yes"/>
@@ -435,6 +404,31 @@
         <xsl:with-param name="duration" select="text()"/>
       </xsl:call-template>
     </field>
+  </xsl:template>
+  
+  <xsl:template match="avalon_resource_type" mode="displayMetadata">
+    <xsl:if test="text() = 'sound recording'">
+      <field name="format_facet">
+        <xsl:text>Streaming Audio</xsl:text>
+      </field>
+      <field name="format_text">
+        <xsl:text>Sound Recording</xsl:text>
+      </field>
+      <field name="format_text">
+        <xsl:text>Streaming Audio</xsl:text>
+      </field>
+    </xsl:if>
+    <xsl:if test="text() = 'moving image'">
+      <field name="format_facet">
+        <xsl:text>Online Video</xsl:text>
+      </field>
+      <field name="format_facet">
+        <xsl:text>Video</xsl:text>
+      </field>
+      <field name="format_text">
+        <xsl:text>Online Video</xsl:text>
+      </field>
+    </xsl:if>
   </xsl:template>
 
   <xsl:template name="processSectionsMetadata">
