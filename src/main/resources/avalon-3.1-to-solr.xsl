@@ -347,6 +347,15 @@
       <xsl:value-of select="text()" />
     </field>
   </xsl:template>
+  
+  <xsl:template match="mods:tableOfContents">
+    <field name="toc_display">
+      <xsl:value-of select="text()" />
+    </field>
+    <field name="toc_text">
+      <xsl:value-of select="text()" />
+    </field>
+  </xsl:template>
 
   <xsl:template match="mods:accessCondition[@type = 'use and reproduction']">
     <field name="terms_of_use_display">
