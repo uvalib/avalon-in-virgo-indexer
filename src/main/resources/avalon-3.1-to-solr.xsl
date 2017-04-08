@@ -199,6 +199,14 @@
       <field name="author_facet">
         <xsl:value-of select="$name"/>
       </field>
+      <field name="author_text">
+        <xsl:value-of select="$name"/>
+      </field>
+    </xsl:if>
+    <xsl:if test="not($roleCode  = 'cre')">
+      <field name="author_added_entry_text">
+        <xsl:value-of select="$name"/>
+      </field>
     </xsl:if>
     <field name="name_text">
       <xsl:value-of select="$name" />
