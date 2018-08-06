@@ -153,15 +153,24 @@ public class AvalonIndexer {
     public void synchronizeAddDocRepository() throws Exception {
         HydraSolrManager m = new HydraSolrManager(getRequiredProperty("hydra-solr-url"));
         for (HydraSolrManager.AvalonRecord record : m.getPidsUpdatedSince(getLastRunDate())) {
+            final boolean blacklisted = isBlacklisted(record);
+            String addDoc = null;
+            try {
+                addDoc = generateAddDoc(record.getPid(), blacklisted);
+            } catch (Throwable t) {
+                LOGGER.error("Unable to index " + record.getPid() + "!", t);
+                errors ++;
+                return;
+            }
             FileOutputStream fos = new FileOutputStream(new File(getRequiredProperty("add-doc-repository"), record.getPid().replace(':', '_') + ".xml"));
             try {
-                final boolean blacklisted = isBlacklisted(record);
                 LOGGER.info("Generating add doc for " + (blacklisted ? "blacklisted " : "") + record.getPid() + " belonging to collection " + record.getCollectionPid() + "...");
-                IOUtils.write(generateAddDoc(record.getPid(), blacklisted), fos);
+                IOUtils.write(addDoc, fos);
                 indexedRecords ++;
             } catch (Exception ex) {
                 errors ++;
                 LOGGER.error("Unable to index " + record.getPid() + "!", ex);
+                fos.close();
             } finally {
                 fos.close();
             }
