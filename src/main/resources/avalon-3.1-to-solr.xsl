@@ -13,6 +13,7 @@
   <xsl:param name="fedoraBaseUrl"/>
   <xsl:param name="avalonBaseUrl"/>
   <xsl:param name="blacklist"/>
+  <xsl:param name="debug" />
 
   <xsl:template match="text()" priority="-1"/>
 
@@ -367,23 +368,27 @@
     <xsl:param name="pid" required="yes"/>
     <xsl:variable name="url"
       select="concat($fedoraBaseUrl, '/objects/', $pid, '/datastreams/', $dsid, '/content')"/>
-    <xsl:message>
-      <xsl:text>Requesting XML datastream at "</xsl:text>
-      <xsl:value-of select="$url"/>
-      <xsl:text>"...</xsl:text>
-    </xsl:message>
-    <xsl:copy-of select="document($url)"/>
+    <xsl:if test="$debug">
+      <xsl:message>
+        <xsl:text>Requesting XML datastream at "</xsl:text>
+        <xsl:value-of select="$url"/>
+        <xsl:text>"...</xsl:text>
+      </xsl:message>
+      <xsl:copy-of select="document($url)"/>
+    </xsl:if>
   </xsl:template>
 
   <xsl:template name="getDatastreamList">
     <xsl:param name="pid" required="yes"/>
     <xsl:variable name="url"
       select="concat($fedoraBaseUrl, '/objects/', $pid, '/datastreams?format=xml')"/>
-    <xsl:message>
-      <xsl:text>Requesting XML listing datastream at "</xsl:text>
-      <xsl:value-of select="$url"/>
-      <xsl:text>"...</xsl:text>
-    </xsl:message>
+    <xsl:if test="$debug">
+      <xsl:message>
+        <xsl:text>Requesting XML listing datastream at "</xsl:text>
+        <xsl:value-of select="$url"/>
+        <xsl:text>"...</xsl:text>
+      </xsl:message>
+    </xsl:if>
     <xsl:copy-of select="document($url)"/>
   </xsl:template>
 
@@ -462,11 +467,13 @@
 
     <!-- get the label from the object profile, YUCK! -->
     <xsl:variable name="url" select="concat($fedoraBaseUrl, '/objects/', $partPid, '?format=xml')"/>
-    <xsl:message>
-      <xsl:text>Requesting XML object profile at "</xsl:text>
-      <xsl:value-of select="$url"/>
-      <xsl:text>"...</xsl:text>
-    </xsl:message>
+    <xsl:if test="$debug">
+      <xsl:message>
+        <xsl:text>Requesting XML object profile at "</xsl:text>
+        <xsl:value-of select="$url"/>
+        <xsl:text>"...</xsl:text>
+      </xsl:message>
+    </xsl:if>
     <xsl:apply-templates mode="partMetadata" select="document($url)/*"/>
 
     <!-- get the part duration from the object descriptive metadata -->
