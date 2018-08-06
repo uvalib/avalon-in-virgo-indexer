@@ -2,7 +2,7 @@ A program to generate alternative Solr index records for content
 in Avalon.
 
 # Requirements
-1. Avalon 3.1 (https://github.com/avalonmediasystem/avalon)
+1. Avalon 3.x, 4.x, or 5.x (https://github.com/avalonmediasystem/avalon)
 2. Solr core with schema that defines fields for id, *_display,
    *_text, *_facet and *_control
 5. Java 1.5+, Maven 3+
@@ -15,7 +15,8 @@ add documents are generated using the XSLT at
  src/main/resources/avalon-3.1-to-solr.xls.
 
 # Usage
-    mvn clean install exec:java -Dexec.mainClass=edu.virginia.lib.avalon.indexer.AvalonIndexer -Dexec.args="development.properties"
-
+```mvn clean install dependency:copy-dependencies```
+```java -cp target/indexer-1.0-SNAPSHOT.jar:target/dependency/* edu.virginia.lib.avalon.indexer.AvalonIndexer development.properties```
+    
 View developement.properties for descriptions of the required properties.
 

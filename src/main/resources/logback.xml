@@ -1,16 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE configuration>
 <configuration>
-    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>                                                           
-            <pattern>%p %d{HH:mm:ss.SSS} \(%c{0}\) %m%n</pattern>
-        </encoder>
-    </appender>
+<appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>index-generation.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
+        <fileNamePattern>index-generation.%i.log.zip</fileNamePattern>
+        <minIndex>1</minIndex>
+        <maxIndex>3</maxIndex>
+    </rollingPolicy>
+    <triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
+        <maxFileSize>5MB</maxFileSize>
+    </triggeringPolicy>
+    <encoder>
+        <pattern>%p %d{HH:mm:ss.SSS} \(%c{0}\) %m%n</pattern>
+    </encoder>
+</appender>
 
-  <logger name="edu.virginia.lib.avalon.indexer" additivity="false" level="DEBUG">
-    <appender-ref ref="STDOUT"/>
-  </logger>
-  <root additivity="false" level="WARN">
-    <appender-ref ref="STDOUT"/>
-  </root>
+<root level="DEBUG">
+    <appender-ref ref="FILE"/>
+</root>
 </configuration>

@@ -146,23 +146,7 @@
         <xsl:call-template name="processSectionsMetadata"/>
         <xsl:call-template name="processWorkflowMetadata"/>
         <xsl:call-template name="processRelationshipMetadata"/>
-        <!-- <field name="has_embedded_avalon_media_control">yes</field> -->
         <field name="feature_facet">has_embedded_avalon_media</field>
-        
-        <!-- Create field listing configuration-->
-        <field name="feature_facet">custom_show_fields</field>
-        <field name="custom_show_field_display">
-          <xsl:variable name="names" select="mods:name" />
-          <xsl:text>{"scopecontent_display":"Abstract","format_facet":"Format","format_display":"Format",</xsl:text>
-          <xsl:for-each select="$roleCodeMap/role">
-            <xsl:variable name="roleCode" select="./code/text()" />
-            <xsl:if test="$names/mods:role/mods:roleTerm[text() = $roleCode]">
-              <xsl:value-of select="concat('&quot;', ./code/text(), '_display&quot;:&quot;', ./label/text(), '&quot;,')" />
-            </xsl:if>
-          </xsl:for-each>
-          <xsl:text>"date_display":"Date","issued_date_display":"Date","genre_display":"Genre","abstract_display":"Summary","note_display":"Notes","duration_display":"Duration","contributor_display":"Contributor","publisher_display":"Publisher","temporal_subject_display":"Time period","geographic_subject_display":"Geographic Location","language_display":"Language","extent_display":"Extent","location_display":"Location","terms_of_use_display":"Terms of Use","digital_collection_facet":"Collection","related_item_display":"Related Item"}</xsl:text>
-        </field>
-        
       </doc>
     </add>
   </xsl:template>

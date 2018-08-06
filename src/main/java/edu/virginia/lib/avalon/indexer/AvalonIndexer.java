@@ -80,6 +80,13 @@ public class AvalonIndexer {
                 AvalonIndexer ai = new AvalonIndexer(p);
                 ai.synchronizeAddDocRepository();
                 ai.shadowAnyDeletedRecords();
+                if (ai.getErrorCount() > 0) {
+                    System.err.println(ai.getErrorCount() + " errors while updating records, " + ai.getIndexRecordCount() + " other index records created/updated as a result of changes since " + new SimpleDateFormat("yyyy-MM-dd hh:mm").format(ai.getLastRunDate()) + ".");
+                    System.exit(1);
+                } else {
+                    System.out.println(ai.getIndexRecordCount() + " index records created/updated as a result of changes since " + new SimpleDateFormat("yyyy-MM-dd hh:mm").format(ai.getLastRunDate()) + ".");
+                }
+
             } finally {
                 fis.close();
                 if (lock != null) {
@@ -98,6 +105,10 @@ public class AvalonIndexer {
     private FedoraClient client;
 
     private Transformer transformer;
+
+    private int indexedRecords;
+
+    private int errors;
 
     public AvalonIndexer(Properties p) throws TransformerConfigurationException, FedoraClientException, MalformedURLException {
         this.configuration = p;
@@ -127,6 +138,14 @@ public class AvalonIndexer {
         }
     }
 
+    public int getIndexRecordCount() {
+        return indexedRecords;
+    }
+
+    public int getErrorCount() {
+        return errors;
+    }
+
     /**
      * Updates the files in the given addDocRepo directory to reflect current
      * solr documents for the
@@ -139,6 +158,10 @@ public class AvalonIndexer {
                 final boolean blacklisted = isBlacklisted(record);
                 LOGGER.info("Generating add doc for " + (blacklisted ? "blacklisted " : "") + record.getPid() + " belonging to collection " + record.getCollectionPid() + "...");
                 IOUtils.write(generateAddDoc(record.getPid(), blacklisted), fos);
+                indexedRecords ++;
+            } catch (Exception ex) {
+                errors ++;
+                LOGGER.error("Unable to index " + record.getPid() + "!", ex);
             } finally {
                 fos.close();
             }
@@ -156,20 +179,25 @@ public class AvalonIndexer {
             Matcher m = p.matcher(solrDocFile.getName());
             if (m.matches()) {
                 final String pid = "avalon:" + m.group(1);
-                if (!exists(pid)) {
-                    Document solrDoc = b.parse(solrDocFile);
-                    NodeList nl = (NodeList) xpath.evaluate("add/doc/field[@name='shadowed_location_facet']", solrDoc, XPathConstants.NODESET);
-                    if (nl != null && nl.getLength() == 1 && !"HIDDEN".equals(nl.item(0).getTextContent())) {
-                        System.out.println("Hiding deleted record for " + pid + "...");
-                        nl.item(0).setTextContent("HIDDEN");
-                        FileOutputStream fos = new FileOutputStream(solrDocFile);
-                        try {
-                            StreamResult result = new StreamResult(fos);
-                            transformer.transform(new DOMSource(solrDoc), result);
-                        } finally {
-                            fos.close();
+                try {
+                    if (!exists(pid)) {
+                        Document solrDoc = b.parse(solrDocFile);
+                        NodeList nl = (NodeList) xpath.evaluate("add/doc/field[@name='shadowed_location_facet']", solrDoc, XPathConstants.NODESET);
+                        if (nl != null && nl.getLength() == 1 && !"HIDDEN".equals(nl.item(0).getTextContent())) {
+                            LOGGER.debug("Hiding deleted record for " + pid + "...");
+                            nl.item(0).setTextContent("HIDDEN");
+                            FileOutputStream fos = new FileOutputStream(solrDocFile);
+                            try {
+                                StreamResult result = new StreamResult(fos);
+                                transformer.transform(new DOMSource(solrDoc), result);
+                            } finally {
+                                fos.close();
+                            }
                         }
                     }
+                } catch (Exception ex) {
+                    errors ++;
+                    LOGGER.error("Error testing for existence of object " + pid + "!", ex);
                 }
             }
         }
