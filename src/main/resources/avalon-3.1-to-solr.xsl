@@ -374,8 +374,8 @@
         <xsl:value-of select="$url"/>
         <xsl:text>"...</xsl:text>
       </xsl:message>
-      <xsl:copy-of select="document($url)"/>
     </xsl:if>
+    <xsl:copy-of select="document($url)"/>
   </xsl:template>
 
   <xsl:template name="getDatastreamList">
