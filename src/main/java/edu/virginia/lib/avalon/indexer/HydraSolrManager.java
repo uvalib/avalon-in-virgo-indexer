@@ -10,9 +10,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.text.DateFormat;
+import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.TimeZone;
@@ -28,7 +30,7 @@ public class HydraSolrManager {
     }
 
     public List<AvalonRecord> getPidsUpdatedSince(Date date) throws SolrServerException {
-        String query = "+has_model_ssim:\"info:fedora/afmodel:MediaObject\"";
+        String query = "+has_model_ssim:\"MediaObject\"";
         if (date != null) {
             query += " +system_modified_dtsi:[" + toISO8601DateString(date) + " TO NOW]";
         }
@@ -45,7 +47,8 @@ public class HydraSolrManager {
     public List<AvalonRecord> getResultingIds(String query) throws SolrServerException {
         ModifiableSolrParams params = new ModifiableSolrParams();
         params.add("q", query);
-        params.add("fl", "id is_member_of_collection_ssim");
+        // TODO: improve efficiency with the next line
+        // params.add("fl", "id is_member_of_collection_ssim");
         params.add("start", "0");
         params.add("rows", "100");
         QueryResponse r = solr.query(params);
@@ -64,7 +67,7 @@ public class HydraSolrManager {
             return false;
         } else {
             for (SolrDocument doc : response.getResults()) {
-                AvalonRecord record = new AvalonRecord((String) doc.getFieldValue("id"), (String) doc.getFirstValue("is_member_of_collection_ssim"));
+                AvalonRecord record = new AvalonRecord(doc);
                 results.add(record);
                 LOGGER.debug("Added " + record + ".");
             }
@@ -97,29 +100,129 @@ public class HydraSolrManager {
 
     public static class AvalonRecord {
 
-        private String pid;
-        private String collectionPid;
+        private SolrDocument doc;
 
-        public AvalonRecord(String pid, String collectionPid) {
-            this.pid = pid;
-            if (collectionPid.startsWith("info:fedora/")) {
-                this.collectionPid = collectionPid.substring(12);
+        private AvalonRecord(SolrDocument d) {
+            doc = d;
+        }
+
+        public String getFilename() {
+            final String oldId = getOldId();
+            if (oldId != null) {
+                return oldId.replace(':', '_') + ".xml";
             } else {
-                this.collectionPid = collectionPid;
+                return getId() + ".xml";
             }
         }
 
-        public String getPid() {
-            return pid;
+        public String getOldId() {
+            return (String) doc.getFirstValue("identifier_ssim");
         }
 
-        public String getCollectionPid() {
-            return collectionPid;
+        public boolean isPublished() {
+            Collection<Object> vals = doc.getFieldValues("avalon_publisher_ssi");
+            if (vals == null || vals.isEmpty()) {
+                return false;
+            } else {
+                return true;
+            }
+        }
 
+        public boolean isHidden() {
+            return "true".equals(doc.getFirstValue("hidden_bsi"));
+        }
+
+        public boolean hasThumbnail() {
+            return (Boolean) doc.getFirstValue("has_thumbnail?_bs");
+        }
+
+        public boolean isMovingImage() {
+            Collection<Object> vals = doc.getFieldValues("avalon_resource_type_ssim");
+            if (vals == null) {
+                return false;
+            }
+            for (Object o : vals) {
+                if (String.valueOf(o).equalsIgnoreCase("Moving image")) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public boolean isAudioRecording() {
+            Collection<Object> vals = doc.getFieldValues("avalon_resource_type_ssim");
+            if (vals == null) {
+                return false;
+            }
+            for (Object o : vals) {
+                if (String.valueOf(o).equalsIgnoreCase("Sound Recording")) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public String getName() {
+            return (String) doc.getFirstValue("name_ssi");
+        }
+
+        public String getTitle() {
+            return (String) doc.getFirstValue("title_tesim");
+        }
+
+        public String getUnit() {
+            return (String) doc.getFirstValue("unit_ssi");
+        }
+
+        public String getId() {
+            return (String) doc.getFieldValue("id");
+        }
+
+        public String getDuration() {
+            long ms = Long.parseLong((String) doc.getFirstValue("duration_ssi"));
+            long hours = ms / 3600000;
+            long minutes = (ms / 60000) % 60;
+            long seconds = (ms / 1000) % 60;
+            DecimalFormat f = new DecimalFormat("00");
+            if (hours > 0) {
+                return String.valueOf(hours) + ":" + f.format(minutes) + ":" + f.format(seconds);
+            } else {
+                return f.format(minutes) + ":" + f.format(seconds);
+            }
+        }
+
+        public String getAspectRatio() {
+            String aspectRatio = (String) doc.getFirstValue("display_aspect_ratio_ssi");
+            if (aspectRatio == null) {
+                return "";
+            }
+            if (aspectRatio.equals("2.4")) {
+                /*
+                 * A bug in avalon causes an incorrect aspect ratio to be presented for ripped
+                 * DVDs. This fixes that... no real video is 2.4
+                 */
+                aspectRatio = "1.779";
+            }
+            return aspectRatio;
+        }
+
+        public List<String> getSectionIds() {
+            ArrayList<String> sectionIds = new ArrayList<String>();
+            Collection<Object> ids = doc.getFieldValues("section_id_ssim");
+            if (ids != null) {
+                for (Object id : ids) {
+                    sectionIds.add((String) id);
+                }
+            }
+            return sectionIds;
+        }
+
+        public String getCollectionId() {
+            return (String) doc.getFirstValue("isMemberOfCollection_ssim");
         }
 
         public String toString() {
-            return "[pid: \"" + pid + "\", collectionPid: \"" + collectionPid + "\"]";
+            return "[id: \"" + getId() + "\", collectionId: \"" + getCollectionId() + "\"]";
         }
     }
 
