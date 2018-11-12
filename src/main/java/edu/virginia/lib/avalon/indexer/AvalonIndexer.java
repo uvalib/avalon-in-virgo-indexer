@@ -330,6 +330,9 @@ public class AvalonIndexer {
     }
 
     private void addField(Document doc, final String name, final String value, final String boost) {
+        if (value == null) {
+            return;
+        }
         Element field = doc.createElement("field");
         field.setAttribute("name", name);
         if (boost != null) {
