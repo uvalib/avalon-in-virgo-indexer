@@ -129,7 +129,7 @@ public class HydraSolrManager {
         }
 
         public boolean isHidden() {
-            return "true".equals(doc.getFirstValue("hidden_bsi"));
+            return Boolean.TRUE.equals(doc.getFirstValue("hidden_bsi"));
         }
 
         public boolean hasThumbnail() {
