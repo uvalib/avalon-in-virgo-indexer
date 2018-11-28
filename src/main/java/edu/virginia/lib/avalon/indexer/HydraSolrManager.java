@@ -194,7 +194,7 @@ public class HydraSolrManager {
         public String getAspectRatio() {
             String aspectRatio = (String) doc.getFirstValue("display_aspect_ratio_ssi");
             if (aspectRatio == null) {
-                return null;
+                return "";
             }
             if (aspectRatio.equals("2.4")) {
                 /*
