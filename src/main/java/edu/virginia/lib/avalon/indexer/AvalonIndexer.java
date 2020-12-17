@@ -240,6 +240,8 @@ public class AvalonIndexer {
                 blacklistedCollectionIds.add(id);
                 blacklistedCollectionIds.add(c.getId());
             }
+        } else {
+            LOGGER.warn("No blacklisted collections, likely due to a configuration error!");
         }
         return blacklistedCollectionIds.contains(record.getCollectionId());
     }
